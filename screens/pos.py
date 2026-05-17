@@ -4,7 +4,6 @@
 
 import flet as ft
 import api_service
-import data
 
 
 def pos_screen(page: ft.Page):
@@ -189,7 +188,7 @@ def pos_screen(page: ft.Page):
                 )
 
             total = sum(float(i["price"]) * i["qty"] for i in cart)
-            data.add_transaction(
+            api_service.add_transaction(
                 items=[
                     {"name": i["name"], "qty": i["qty"], "price": i["price"]}
                     for i in cart
