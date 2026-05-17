@@ -1,7 +1,3 @@
-# ============================================================
-# SALES REPORT SCREEN — connected to API
-# ============================================================
-
 import flet as ft
 import api_service
 
