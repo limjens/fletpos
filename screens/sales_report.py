@@ -1,9 +1,9 @@
 # ============================================================
-# SALES REPORT SCREEN — with error trapping
+# SALES REPORT SCREEN — connected to API
 # ============================================================
 
 import flet as ft
-import data
+import api_service
 
 
 def sales_report_screen(page: ft.Page):
@@ -14,7 +14,12 @@ def sales_report_screen(page: ft.Page):
         try:
             report_list.controls.clear()
             error.value = ""
-            transactions = data.get_transactions()
+            transactions, status = api_service.get_transactions()
+
+            if status != 200:
+                error.value = "Failed to load transactions"
+                page.update()
+                return
 
             if not transactions:
                 report_list.controls.append(
@@ -23,9 +28,9 @@ def sales_report_screen(page: ft.Page):
                 page.update()
                 return
 
-            total_sales = sum(t["total"] for t in transactions)
+            total_sales = sum(float(t["total"]) for t in transactions)
 
-            for t in reversed(transactions):
+            for t in transactions:
                 try:
                     items_text = ", ".join(
                         f"{i['name']} x{i['qty']}" for i in t["items"]
@@ -38,7 +43,7 @@ def sales_report_screen(page: ft.Page):
                                         ft.Row(
                                             controls=[
                                                 ft.Text(
-                                                    f"Transaction #{t['id']}",
+                                                    f"Transaction #{t['id'][:8]}...",
                                                     weight=ft.FontWeight.BOLD,
                                                 ),
                                                 ft.Text(
@@ -49,7 +54,7 @@ def sales_report_screen(page: ft.Page):
                                         ),
                                         ft.Text(items_text, color="grey", size=12),
                                         ft.Text(
-                                            f"Total: ₱{t['total']:.2f}",
+                                            f"Total: ₱{float(t['total']):.2f}",
                                             color="green",
                                             weight=ft.FontWeight.BOLD,
                                         ),
@@ -61,10 +66,7 @@ def sales_report_screen(page: ft.Page):
                     )
                 except Exception as ex:
                     report_list.controls.append(
-                        ft.Text(
-                            f"Error loading transaction #{t.get('id', '?')}: {ex}",
-                            color="red",
-                        )
+                        ft.Text(f"Error loading transaction: {ex}", color="red")
                     )
 
             report_list.controls.append(ft.Divider())
