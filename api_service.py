@@ -92,3 +92,44 @@ def add_transaction(items, total):
         return res.json(), res.status_code
     except Exception as e:
         return {"message": str(e)}, 500
+
+
+def get_users():
+    try:
+        res = requests.get(f"{BASE_URL}/auth/users", headers=get_headers())
+        return res.json(), res.status_code
+    except Exception as e:
+        return {"message": str(e)}, 500
+
+
+def add_user(username, password):
+    try:
+        res = requests.post(
+            f"{BASE_URL}/auth/register",
+            json={"username": username, "password": password},
+        )
+        return res.json(), res.status_code
+    except Exception as e:
+        return {"message": str(e)}, 500
+
+
+def update_user(username, password):
+    try:
+        res = requests.put(
+            f"{BASE_URL}/auth/users/{username}",
+            json={"password": password},
+            headers=get_headers(),
+        )
+        return res.json(), res.status_code
+    except Exception as e:
+        return {"message": str(e)}, 500
+
+
+def delete_user(username):
+    try:
+        res = requests.delete(
+            f"{BASE_URL}/auth/users/{username}", headers=get_headers()
+        )
+        return res.json(), res.status_code
+    except Exception as e:
+        return {"message": str(e)}, 500
