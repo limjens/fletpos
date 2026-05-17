@@ -1,9 +1,5 @@
-# ============================================================
-# INVENTORY SCREEN — with error trapping
-# ============================================================
-
 import flet as ft
-import data
+import api_service
 
 
 def inventory_screen(page: ft.Page):
@@ -21,7 +17,11 @@ def inventory_screen(page: ft.Page):
     def refresh():
         try:
             product_list.controls.clear()
-            for p in data.get_products():
+            products, status = api_service.get_products()
+            if status != 200:
+                show_error("Failed to load products")
+                return
+            for p in products:
                 product_list.controls.append(
                     ft.Card(
                         content=ft.Container(
@@ -65,12 +65,14 @@ def inventory_screen(page: ft.Page):
             if not name.value or not price.value or not stock.value:
                 show_error("Fill all fields")
                 return
-            products = data.get_products()
-            if any(p["name"].lower() == name.value.lower() for p in products):
-                show_error("Product already exists")
+            data, status = api_service.add_product(
+                name.value, float(price.value), int(stock.value)
+            )
+            if status != 201:
+                show_error(data.get("message", "Failed to add product"))
                 return
-            data.add_product(name.value, float(price.value), int(stock.value))
             name.value = price.value = stock.value = error.value = ""
+            show_error("Product added!", color="green")
             refresh()
         except ValueError:
             show_error("Price and stock must be valid numbers")
@@ -79,7 +81,10 @@ def inventory_screen(page: ft.Page):
 
     def handle_delete(id):
         try:
-            data.delete_product(id)
+            data, status = api_service.delete_product(id)
+            if status != 200:
+                show_error(data.get("message", "Failed to delete product"))
+                return
             refresh()
         except Exception as ex:
             show_error(f"Failed to delete product: {ex}")
@@ -96,14 +101,17 @@ def inventory_screen(page: ft.Page):
                     edit_error.value = "Fill all fields"
                     page.update()
                     return
-                data.update_product(
+                data, status = api_service.update_product(
                     p["id"],
                     edit_name.value,
                     float(edit_price.value),
                     int(edit_stock.value),
                 )
+                if status != 200:
+                    edit_error.value = data.get("message", "Failed to update product")
+                    page.update()
+                    return
                 dlg.open = False
-                page.update()
                 refresh()
             except ValueError:
                 edit_error.value = "Price and stock must be valid numbers"
