@@ -1,9 +1,9 @@
 # ============================================================
-# POS SCREEN — checkbox selection + quantity adjuster
+# POS SCREEN — connected to API, checkbox + qty adjuster
 # ============================================================
 
-
 import flet as ft
+import api_service
 import data
 
 
@@ -22,15 +22,22 @@ def pos_screen(page: ft.Page):
         error.visible = True
         page.update()
 
+    def hide_error():
+        error.value = ""
+        error.visible = False
+
     def refresh_products():
         try:
             product_list.controls.clear()
             query = search.value.lower()
-            for p in data.get_products():
+            products, status = api_service.get_products()
+            if status != 200:
+                show_error("Failed to load products")
+                return
+            for p in products:
                 if query in p["name"].lower():
-                    out_of_stock = p["stock"] <= 0
+                    out_of_stock = int(p["stock"]) <= 0
                     in_cart = next((i for i in cart if i["id"] == p["id"]), None)
-
                     product_list.controls.append(
                         ft.Container(
                             content=ft.Row(
@@ -50,7 +57,7 @@ def pos_screen(page: ft.Page):
                                                 color="grey" if out_of_stock else None,
                                             ),
                                             ft.Text(
-                                                f"₱{p['price']} | Stock: {p['stock']}",
+                                                f"₱{float(p['price']):.2f} | Stock: {p['stock']}",
                                                 color="red" if out_of_stock else "grey",
                                                 size=12,
                                             ),
@@ -84,32 +91,31 @@ def pos_screen(page: ft.Page):
                         {
                             "id": p["id"],
                             "name": p["name"],
-                            "price": p["price"],
+                            "price": float(p["price"]),
+                            "stock": int(p["stock"]),
                             "qty": 1,
                         }
                     )
             else:
                 cart[:] = [i for i in cart if i["id"] != p["id"]]
-            error.value = ""
+            hide_error()
             refresh_cart()
         except Exception as ex:
             show_error(f"Error updating cart: {ex}")
 
     def change_qty(item, delta):
         try:
-            products = data.get_products()
-            product = next((p for p in products if p["id"] == item["id"]), None)
             new_qty = item["qty"] + delta
             if new_qty <= 0:
                 cart.remove(item)
                 refresh_cart()
                 refresh_products()
                 return
-            if product and new_qty > product["stock"]:
+            if new_qty > item["stock"]:
                 show_error(f"Not enough stock for {item['name']}")
                 return
             item["qty"] = new_qty
-            error.value = ""
+            hide_error()
             refresh_cart()
         except Exception as ex:
             show_error(f"Failed to update quantity: {ex}")
@@ -145,7 +151,7 @@ def pos_screen(page: ft.Page):
                                     ),
                                 ),
                                 ft.Text(
-                                    f"₱{item['price'] * item['qty']:.2f}",
+                                    f"₱{float(item['price']) * item['qty']:.2f}",
                                     width=70,
                                     text_align=ft.TextAlign.RIGHT,
                                     size=13,
@@ -164,7 +170,7 @@ def pos_screen(page: ft.Page):
                         border_radius=6,
                     )
                 )
-            total = sum(i["price"] * i["qty"] for i in cart)
+            total = sum(float(i["price"]) * i["qty"] for i in cart)
             total_text.value = f"Total: ₱{total:.2f}"
             page.update()
         except Exception as ex:
@@ -175,9 +181,14 @@ def pos_screen(page: ft.Page):
             if not cart:
                 show_error("Cart is empty")
                 return
+
             for item in cart:
-                data.deduct_stock(item["id"], item["qty"])
-            total = sum(i["price"] * i["qty"] for i in cart)
+                new_stock = item["stock"] - item["qty"]
+                api_service.update_product(
+                    item["id"], item["name"], item["price"], new_stock
+                )
+
+            total = sum(float(i["price"]) * i["qty"] for i in cart)
             data.add_transaction(
                 items=[
                     {"name": i["name"], "qty": i["qty"], "price": i["price"]}
@@ -185,8 +196,9 @@ def pos_screen(page: ft.Page):
                 ],
                 total=total,
             )
+
             cart.clear()
-            error.value = ""
+            hide_error()
             refresh_cart()
             refresh_products()
 
