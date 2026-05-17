@@ -1,9 +1,9 @@
 # ============================================================
-# USERS SCREEN — with error trapping
+# USERS SCREEN — connected to API
 # ============================================================
 
 import flet as ft
-import data
+import api_service
 
 
 def users_screen(page: ft.Page, current_user):
@@ -22,7 +22,11 @@ def users_screen(page: ft.Page, current_user):
     def refresh():
         try:
             user_list.controls.clear()
-            for u in data.get_users():
+            users, status = api_service.get_users()
+            if status != 200:
+                show_error("Failed to load users")
+                return
+            for u in users:
                 is_current = u["username"] == current_user["username"]
                 user_list.controls.append(
                     ft.Card(
@@ -33,8 +37,7 @@ def users_screen(page: ft.Page, current_user):
                                         controls=[
                                             ft.Icon(ft.Icons.PERSON, color="indigo"),
                                             ft.Text(
-                                                u["username"],
-                                                weight=ft.FontWeight.BOLD,
+                                                u["username"], weight=ft.FontWeight.BOLD
                                             ),
                                             ft.Container(
                                                 content=ft.Text(
@@ -42,9 +45,7 @@ def users_screen(page: ft.Page, current_user):
                                                 ),
                                                 bgcolor="indigo",
                                                 border_radius=10,
-                                                padding=ft.Padding(
-                                                    left=8, right=8, top=2, bottom=2
-                                                ),
+                                                padding=ft.Padding(8, 2, 8, 2),
                                                 visible=is_current,
                                             ),
                                         ],
@@ -78,11 +79,10 @@ def users_screen(page: ft.Page, current_user):
             if not username.value or not password.value:
                 show_error("Fill all fields")
                 return
-            users = data.get_users()
-            if any(u["username"] == username.value for u in users):
-                show_error("Username already taken")
+            data, status = api_service.add_user(username.value, password.value)
+            if status != 201:
+                show_error(data.get("message", "Failed to add user"))
                 return
-            data.add_user(username.value, password.value)
             username.value = password.value = error.value = ""
             show_error("User added successfully!", color="green")
             refresh()
@@ -91,7 +91,10 @@ def users_screen(page: ft.Page, current_user):
 
     def handle_delete(uname):
         try:
-            data.delete_user(uname)
+            data, status = api_service.delete_user(uname)
+            if status != 200:
+                show_error(data.get("message", "Failed to delete user"))
+                return
             refresh()
         except Exception as ex:
             show_error(f"Failed to delete user: {ex}")
@@ -108,7 +111,13 @@ def users_screen(page: ft.Page, current_user):
                     edit_error.value = "Password cannot be empty"
                     page.update()
                     return
-                data.update_user(u["username"], new_password.value)
+                data, status = api_service.update_user(
+                    u["username"], new_password.value
+                )
+                if status != 200:
+                    edit_error.value = data.get("message", "Failed to update user")
+                    page.update()
+                    return
                 dlg.open = False
                 show_error("Password updated!", color="green")
                 refresh()
