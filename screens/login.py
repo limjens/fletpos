@@ -1,9 +1,5 @@
-# ============================================================
-# LOGIN SCREEN — with error trapping
-# ============================================================
-
 import flet as ft
-import data
+import api_service
 
 
 def login_screen(page: ft.Page, on_login):
@@ -20,13 +16,14 @@ def login_screen(page: ft.Page, on_login):
                 error.color = "red"
                 page.update()
                 return
-            user = data.find_user(username.value, password.value)
-            if not user:
-                error.value = "Invalid username or password"
+            data, status = api_service.login(username.value, password.value)
+            if status != 200:
+                error.value = data.get("message", "Login failed")
                 error.color = "red"
                 page.update()
                 return
-            on_login(user)
+            api_service.set_token(data["token"])
+            on_login(data["user"])
         except Exception as ex:
             error.value = f"Login error: {ex}"
             error.color = "red"
@@ -39,13 +36,12 @@ def login_screen(page: ft.Page, on_login):
                 error.color = "red"
                 page.update()
                 return
-            users = data.get_users()
-            if any(u["username"] == username.value for u in users):
-                error.value = "Username already taken"
+            data, status = api_service.register(username.value, password.value)
+            if status != 201:
+                error.value = data.get("message", "Registration failed")
                 error.color = "red"
                 page.update()
                 return
-            data.add_user(username.value, password.value)
             error.color = "green"
             error.value = "Registered! You can now login."
             page.update()
