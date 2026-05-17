@@ -72,3 +72,23 @@ def delete_product(id):
         return res.json(), res.status_code
     except Exception as e:
         return {"message": str(e)}, 500
+
+
+def get_transactions():
+    try:
+        res = requests.get(f"{BASE_URL}/transactions", headers=get_headers())
+        return res.json(), res.status_code
+    except Exception as e:
+        return {"message": str(e)}, 500
+
+
+def add_transaction(items, total):
+    try:
+        res = requests.post(
+            f"{BASE_URL}/transactions",
+            json={"items": items, "total": total},
+            headers=get_headers(),
+        )
+        return res.json(), res.status_code
+    except Exception as e:
+        return {"message": str(e)}, 500
